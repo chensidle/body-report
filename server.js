@@ -30,7 +30,7 @@ const upload = multer({ limits: { fileSize: 10 * 1024 * 1024 } });
 app.post("/api/analyze", basicAuth, upload.single("file"), async (req, res) => {
 });
 
-
+app.use(basicAuth); 
 app.use(cors());
 app.use(express.static(__dirname));
 
