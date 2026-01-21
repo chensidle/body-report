@@ -6,6 +6,15 @@ const cors = require("cors");
 const OpenAI = require("openai");
 
 const app = express();
+
+const withTimeout = (p, ms) =>
+  Promise.race([
+    p,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("AI request timeout")), ms)
+    )
+  ]);
+
 function basicAuth(req, res, next) {
   const user = process.env.BASIC_USER;
   const pass = process.env.BASIC_PASS;
@@ -92,18 +101,22 @@ const prompt = `
 `;
 
 
-    const r = await client.responses.create({
-      model: "gpt-5",
-      input: [
-        {
-          role: "user",
-          content: [
-            { type: "input_text", text: prompt },
-            { type: "input_image", image_url: `data:${mime};base64,${base64}` }
-          ]
-        }
-      ]
-    });
+    const r = await withTimeout(
+  client.responses.create({
+    model: "gpt-5",
+    input: [
+      {
+        role: "user",
+        content: [
+          { type: "input_text", text: prompt },
+          { type: "input_image", image_url: `data:${mime};base64,${base64}` }
+        ]
+      }
+    ]
+  }),
+  55000
+);
+
 
     // 取得模型輸出文字（應該是一段 JSON 字串）
     const text = r.output_text;
