@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI 身體分析報告</title>
+  <style>
+    body{font-family:system-ui, -apple-system, "Segoe UI", Arial; margin:0; background:#f5f5f5;}
+    .wrap{max-width:900px; margin:24px auto; padding:0 16px;}
+    .card{background:#fff; border-radius:12px; padding:16px; box-shadow:0 2px 12px rgba(0,0,0,.06); margin-bottom:16px;}
+    h1{margin:0 0 8px 0; font-size:28px;}
+    h2{margin:18px 0 8px 0; font-size:18px;}
+    .row{display:flex; gap:12px; flex-wrap:wrap; align-items:center;}
+    button{padding:8px 12px; border:1px solid #ccc; background:#fff; border-radius:10px; cursor:pointer;}
+    button:hover{background:#fafafa;}
+    input[type=file]{padding:8px;}
+    .muted{color:#666; font-size:13px;}
+    .grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+    .box{border:1px solid #e8e8e8; border-radius:10px; padding:12px;}
+    ul{margin:6px 0 0 18px;}
+    pre{white-space:pre-wrap; word-break:break-word; margin:0;}
+    table{width:100%; border-collapse:collapse; font-size:14px;}
+    th,td{border-bottom:1px solid #eee; padding:8px; text-align:left; vertical-align:top;}
+    th{width:38%; color:#444; font-weight:600; background:#fafafa;}
+    .error{color:#b00020; background:#fff3f3; border:1px solid #ffd2d2; padding:12px; border-radius:10px;}
+
+    /* 列印設定 */
+    @media print {
+      body{background:#fff;}
+      .wrap{max-width:none; margin:0; padding:0;}
+      .no-print{display:none !important;}
+      .card{box-shadow:none; border-radius:0; margin:0; padding:0;}
+      .page{padding:14mm;}
+      @page { size: A4; margin: 10mm; }
+      h1{font-size:22px;}
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <!-- 上傳區（不列印） -->
+    <div class="card no-print">
+      <h1>上傳身體組成分析表</h1>
+      <div class="row">
+        <input id="file" type="file" accept="image/*" />
+        <button id="btn">上傳並產生報告</button>
+        <button id="btnPrint" disabled>列印 / 存成 PDF</button>
+      </div>
+      <div class="muted" style="margin-top:8px;">
+        提示：報告產生後再按「列印 / 存成 PDF」。
+      </div>
+      <div id="status" style="margin-top:10px;"></div>
+    </div>
+
+    <!-- 報告區（可列印） -->
+    <div class="card page">
+      <div id="report">
+        <div class="muted">尚未產生報告。請先上傳圖片。</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const fileEl = document.getElementById("file");
+    const btn = document.getElementById("btn");
+    const btnPrint = document.getElementById("btnPrint");
+    const statusEl = document.getElementById("status");
+    const reportEl = document.getElementById("report");
+
+    const safe = (v) => (v === null || v === undefined || v === "") ? "—" : v;
+
+    function metricRow(label, value) {
+      return `<tr><th>${label}</th><td>${safe(value)}</td></tr>`;
+    }
+
+    function renderReport(data) {
+  const sp = data.status_points || {};
+  const top3 = Array.isArray(data.top3_actions) ? data.top3_actions : [];
+  const signs = Array.isArray(data.success_signs) ? data.success_signs : [];
+
+  reportEl.innerHTML = `
+    <h1>減重簡易建議報告</h1>
+    <div class="muted">一般民眾版（不以數字為主，重點在可執行）</div>
+
+    <h2>一句話總結</h2>
+    <div class="box"><pre>${safe(data.one_line_summary)}</pre></div>
+
+    <h2>目前身體狀況重點</h2>
+    <div class="box">
+      <ul>
+        <li>體重狀態：${safe(sp.weight_status)}</li>
+        <li>體脂狀態：${safe(sp.bodyfat_status)}</li>
+        <li>肌肉量狀態：${safe(sp.muscle_status)}</li>
+      </ul>
+    </div>
+
+    <h2>減重時最重要的 3 件事</h2>
+    <div class="box">
+      ${top3.length ? `<ol>${top3.map(x => `<li>${x}</li>`).join("")}</ol>` : `<div class="muted">—</div>`}
+    </div>
+
+    <h2>運動建議</h2>
+    <div class="box">
+      <ul>
+        <li>每週運動：${safe(data?.exercise?.frequency_per_week)}</li>
+        <li>建議類型：${safe(data?.exercise?.type)}</li>
+        <li>重點提醒：${safe(data?.exercise?.note)}</li>
+      </ul>
+    </div>
+
+    <h2>飲食建議</h2>
+    <div class="box">
+      <ul>
+        <li>吃的重點：${safe(data?.diet?.meal_focus)}</li>
+        <li>用餐原則：${safe(data?.diet?.meal_rule)}</li>
+        <li>需要少碰的：${safe(data?.diet?.avoid)}</li>
+      </ul>
+    </div>
+
+    <h2>這樣做代表方向正確</h2>
+    <div class="box">
+      ${signs.length ? `<ul>${signs.map(x => `<li>${x}</li>`).join("")}</ul>` : `<div class="muted">—</div>`}
+    </div>
+
+    <h2>追蹤建議</h2>
+    <div class="box">${safe(data.follow_up)}</div>
+
+    <div class="muted" style="margin-top:10px;">${safe(data.disclaimer)}</div>
+  `;
+}
+
+    btnPrint.addEventListener("click", () => window.print());
+
+    btn.addEventListener("click", async () => {
+      const f = fileEl.files[0];
+      if (!f) { statusEl.innerHTML = `<div class="error">請先選擇圖片檔</div>`; return; }
+
+      statusEl.textContent = "上傳中…";
+      btn.disabled = true;
+      btnPrint.disabled = true;
+
+      try {
+        const fd = new FormData();
+        fd.append("file", f);
+
+        const resp = await fetch("/api/analyze", { method: "POST", body: fd });
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          statusEl.innerHTML = `<div class="error">${data.error || "發生錯誤"}</div>`;
+          // 若有 raw 也顯示，方便除錯
+          if (data.raw) reportEl.innerHTML = `<div class="error"><pre>${data.raw}</pre></div>`;
+          return;
+        }
+
+        renderReport(data);
+        statusEl.textContent = "完成。";
+        btnPrint.disabled = false;
+      } catch (e) {
+        statusEl.innerHTML = `<div class="error">連線失敗：${e.message}</div>`;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
