@@ -145,17 +145,20 @@
         fd.append("file", f);
 
         const resp = await fetch("/api/analyze", { method: "POST", body: fd });
-        const data = await resp.json();
 
-        if (!resp.ok) {
-          statusEl.innerHTML = `<div class="error">${data.error || "發生錯誤"}</div>`;
-          // 若有 raw 也顯示，方便除錯
-          if (data.raw) reportEl.innerHTML = `<div class="error"><pre>${data.raw}</pre></div>`;
-          return;
-        }
+const text = await resp.text(); // 先用文字讀
+let data = null;
+try { data = JSON.parse(text); } catch {}
 
-        renderReport(data);
-        statusEl.textContent = "完成。";
+if (!resp.ok) {
+  out.textContent = `錯誤（HTTP ${resp.status}）：\n` + (data?.error || text.slice(0, 500));
+  return;
+}
+
+// 成功
+renderReport(data);
+out.textContent = "完成";
+
         btnPrint.disabled = false;
       } catch (e) {
         statusEl.innerHTML = `<div class="error">連線失敗：${e.message}</div>`;
